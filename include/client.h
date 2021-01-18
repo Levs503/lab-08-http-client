@@ -6,7 +6,7 @@
 #define TEMPLATE_CLIENT_H
 #include <boost/asio.hpp>
 #include <boost/log/trivial.hpp>
-
+#include <boost/thread/thread.hpp>
 #include <chrono>
 #include <header.hpp>
 #include <iostream>
@@ -20,19 +20,25 @@ class client {
  public:
   tcp::endpoint ep;
   tcp::socket socket;
-  std::string username;
+  bool connection;
 
-  client(std::string a, tcp::enpoint ep): username(a), socket(service), ep(ep){};
-  client();
-  void connect(){
-    socket.connect(ep, 8001);
+  client(tcp::endpoint edp) : ep(edp), socket(service){};
+  client()
+      : ep(boost::asio::ip::address::from_string("127.0.0.1"), 8001),
+        socket(service){};
+  void connect() {
+    socket.connect(ep);
+    connection = true;
   }
 
-  void write(std::string msg){
-    socket.write(buffer(msg));
+  void write(std::string msg) {
+    msg += '\n';
+    socket.write_some(boost::asio::buffer(msg));
   }
 
-  std::string read_answer(){
+  std::string read_answer() {
+    while (!socket.available()) {
+    }
     std::string com;
     boost::asio::streambuf buffer;
     boost::asio::read_until(socket, buffer, '\n');
@@ -41,10 +47,16 @@ class client {
     return com;
   }
 
-  void Check_connection(){
-
+  void Check_connection() {
+    while (true) {
+      if (connection) {
+        boost::this_thread::sleep(
+            boost::posix_time::millisec((rand() % 6000) + 1000));
+        write("Ping");
+        std::cout << read_answer() << std::endl;
+      }
+    }
   }
-
 };
 
 #endif  // TEMPLATE_CLIENT_H
